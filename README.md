@@ -2,7 +2,7 @@
 
 🚧 **Project Status: Under Active Development**
 
-ResearchMind AI is an intelligent Research Paper Analysis and Knowledge Retrieval System designed to assist researchers, students, and professionals in efficiently understanding academic literature.
+ResearchMind is an intelligent Research Paper Analysis and Knowledge Retrieval System designed to assist researchers, students, and professionals in efficiently understanding academic literature.
 
 Unlike traditional PDF summarizers, ResearchMind AI builds a persistent research knowledge base that can retrieve information across multiple papers, answer questions with citations, compare research works, and generate structured insights grounded in source documents.
 
@@ -16,7 +16,7 @@ Modern researchers spend significant time reading, comparing, and extracting inf
 
 Traditional AI summarization tools generally operate on a single document and often generate unsupported answers without providing evidence from the original source.
 
-ResearchMind AI addresses these limitations by:
+ResearchMind addresses these limitations by:
 
 * Creating a searchable research knowledge repository.
 * Retrieving relevant information before generating responses.
