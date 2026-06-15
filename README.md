@@ -1,4 +1,4 @@
-# ResearchMind AI 📚🤖
+# ResearchMind 📚🤖
 
 🚧 **Project Status: Under Active Development**
 
