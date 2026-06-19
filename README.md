@@ -1,7 +1,7 @@
 # 🧠 ResearchMind AI
 
 > **Intelligent Research Paper Analysis & Knowledge Retrieval System**  
-> Powered by Retrieval-Augmented Generation, Hybrid Vector Search, and Free LLMs.
+> Powered by Retrieval-Augmented Generation (RAG), Hybrid Vector Search, and Local/Cloud LLM Fallbacks.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-red)](https://streamlit.io)
@@ -10,34 +10,30 @@
 
 ---
 
-## 🚀 What Is This?
+## 🚀 Overview
 
-ResearchMind AI is a full-stack AI system that turns a folder of research PDFs into a **queryable, searchable, comparable knowledge base** — with no paid APIs required.
-
-Unlike simple PDF summarizers, it builds a **persistent semantic memory** you can:
-- **Chat with** in natural language
-- **Search across** using hybrid retrieval
-- **Compare** papers side-by-side
-- **Visualize** with analytics
+ResearchMind AI is an advanced, production-patterned RAG application designed to parse, index, and query academic research papers. It creates a **persistent semantic memory** from uploaded PDFs, allowing researchers to chat with their library, run side-by-side paper comparisons, and search across thousands of pages. It features an automated hybrid retrieval engine and operates either completely offline (via Ollama) or through high-performance APIs (via Groq or Google Gemini).
 
 ---
 
 ## ✨ Key Features
 
-| Feature | Details |
-|---------|---------|
-| 📄 **PDF Ingestion** | PyMuPDF + PDFPlumber — text, tables, metadata, sections |
-| 🔢 **Local Embeddings** | `all-MiniLM-L6-v2` (free, runs offline) |
-| 🔍 **Hybrid Retrieval** | ChromaDB (dense cosine) + BM25 (keyword) fused via RRF |
-| 🧠 **Streaming Chat** | Token-by-token streaming with source citations |
-| 📊 **Paper Comparison** | LLM deep-compare: methods, datasets, results, strengths |
-| 📈 **Analytics** | Upload timeline, chunk distribution, system health |
-| 💯 **Confidence Scoring** | Per-answer confidence based on retrieval similarity |
-| 🆓 **100% Free LLMs** | Groq (Llama 70B) · Gemini Flash · Ollama (offline) |
+| Feature | Technical Strategy & Implementation Details |
+|---------|---------------------------------------------|
+| 📄 **PDF Ingestion** | Extracts text structure, tabular structures, and document metadata via PyMuPDF and PDFPlumber. |
+| 🔢 **Local Embeddings** | Runs the `all-MiniLM-L6-v2` transformer model locally to map text to a dense 384-dimensional space. |
+| 🔍 **Hybrid Retrieval** | Pairs dense vector search (ChromaDB) with sparse keyword matching (BM25) fused via Reciprocal Rank Fusion. |
+| 🧠 **Streaming Chat** | Streams responses token-by-token using SSE (Server-Sent Events) with automatic page-level citations. |
+| 📊 **Paper Comparison** | Runs multi-document context assembly to generate cross-comparison matrices of methods, datasets, and outcomes. |
+| 📈 **Analytics** | Visualizes vector space density, page counts, publication years, and system database ingestion metrics. |
+| 💯 **Confidence Scoring** | Computes a self-verification score based on cosine similarity and LLM feedback checking. |
+| 🆓 **Flexible Providers** | Unified API router connecting Groq (Llama 70B), Gemini Flash, and local Ollama. |
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
+
+The layout below highlights the data flow between document ingestion, vector databases, search fusion, and LLM processing:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -70,138 +66,111 @@ Unlike simple PDF summarizers, it builds a **persistent semantic memory** you ca
 
 ---
 
-## ⚡ Quickstart
+## 🔬 Technical Deep-Dive & Strategies
 
-### 1. Clone & Install
+For developers and technical interviewers, here is the detailed breakdown of the engineering strategies implemented in this project:
 
-```bash
-git clone https://github.com/Harsh-Chauhan5749/ResearchMIND.git
-cd ResearchMIND
+### 1. Hybrid Retrieval & Reciprocal Rank Fusion (RRF)
+RAG systems that rely solely on dense vector embeddings often struggle with keyword-specific lookups, product codes, equations, or specialized terms. ResearchMind AI addresses this by running a **two-pronged retrieval strategy**:
+* **Dense Retrieval (Semantic Search):** Generates normalized 384-dimensional embeddings of text chunks using `all-MiniLM-L6-v2`. It queries ChromaDB using cosine similarity to find conceptually related information (e.g., matching "deep neural net" with "multilayer perceptron").
+* **Sparse Retrieval (Keyword Search):** Computes BM25 scores (best-matching TF-IDF variants) on the exact vocabulary of the query. This captures critical terms, metrics, values, and specific terminology that vector embeddings might dilute.
+* **Reciprocal Rank Fusion (RRF) Fusion:** To combine these two disparate scoring lists fairly, the system uses RRF, which rates documents based on their positional rank rather than their raw scores:
 
-pip install -r requirements.txt
-```
+$$\text{RRF Score} = w_{\text{dense}} \times \left( \frac{1}{k + \text{rank}_{\text{dense}}} \right) + w_{\text{sparse}} \times \left( \frac{1}{k + \text{rank}_{\text{sparse}}} \right)$$
 
-### 2. Get a Free LLM API Key (pick one)
+*Here, $k$ is set to $60$ (a standard smoothing constant to avoid over-weighting outlier rankings), and the weights are configured at $60\%$ dense and $40\%$ sparse.*
 
-**Option A — Groq (Recommended: fastest, Llama 3.1 70B)**
-```
-1. Go to https://console.groq.com
-2. Sign up free → API Keys → Create API Key
-3. Free tier: 30 requests/min, 6000 tokens/min
-```
+### 2. Multi-Query Query Expansion
+Natural language queries are often brief or poorly phrased. To improve recall, the system runs the query through an expansion step:
+1. **Stopword Elimination:** Strips filler words (like "the", "a", "explain") to isolate core content words.
+2. **Alternative Queries:** Evaluates synonyms and semantic variants.
+3. **Multi-Vector Queries:** Searches ChromaDB and BM25 with both the original query and the stripped query, merging the results. This prevents a poorly worded user question from missing critical matches.
 
-**Option B — Google Gemini (Gemini 1.5 Flash)**
-```
-1. Go to https://ai.google.dev
-2. Get API Key → Create API Key
-3. Free tier: 15 requests/min
-```
+### 3. Context-Aware Semantic Chunking
+Standard RAG systems split documents using rigid, character-based boundaries (e.g., every 500 characters). In scientific literature, this breaks tables, splits single numbers from their units, and disrupts sentences. ResearchMind AI implements a custom parser:
+* **Section Header Registration:** Parses the PDF text layout to detect changes in font size or spacing that represent section boundaries (e.g., "Methodology", "Results").
+* **Semantic boundaries:** Prefers splitting text at paragraphs or sentence completions (`.`, `?`, `!`) rather than splitting in the middle of a line.
+* **Overlapping Sliding Window:** Incorporates a 200-character overlap buffer. This ensures that keywords located at the tail-end of one chunk are carried over into the next chunk, preserving context continuity.
 
-**Option C — Ollama (fully offline, no key needed)**
-```bash
-# Install from https://ollama.ai
-ollama pull llama3.2   # ~2GB download
-```
+### 4. Self-Verification & Answer Confidence Scoring
+To combat LLM hallucinations and give the user feedback on the reliability of an answer, the system calculates a dynamic confidence score:
+1. **Retrieval Score:** Averages the cosine similarity of the top-3 chunks retrieved from the databases.
+2. **Negative Feedback Penalty:** Checks the generated LLM text for negative-assurance keywords (e.g., "not mentioned", "not found in context", "I do not know"). If these patterns are detected, the confidence score is severely penalized (set to 0% or reduced by 50%).
+3. **Final Metric:** Renders a visual color-coded indicator (Green: High, Orange: Moderate, Red: Low) representing the final confidence level.
 
-### 3. Configure
-
-```bash
-cp .env.example .env
-# Edit .env with your key:
-# GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
-# LLM_PROVIDER=groq
-```
-
-### 4. Run
-
-```bash
-streamlit run streamlit_app.py
-```
-
-Visit `http://localhost:8501` 🎉
+### 5. High-Availability LLM Routing & Offline Fallback
+To provide a reliable experience, the application features an interface that decouples the UI from the LLM endpoint. It supports:
+* **Cloud Mode (Groq / Gemini):** Runs high-performance cloud models with larger parameter sizes for complex reasoning.
+* **Automatic Exception Interceptor:** If the application detects a connection failure (due to lack of internet) or an API error (due to rate-limits), the handler intercepts the exception and automatically reroutes the prompt to the local **Ollama** server running locally (`http://localhost:11434`). This ensures the app remains operational at all times.
 
 ---
 
-## 📁 Project Structure
+## ⚡ Quickstart
+
+### 1. Clone & Install
+```bash
+git clone https://github.com/Harsh-Chauhan5749/ResearchMIND.git
+cd ResearchMIND
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+Create a `.env` file in the root directory:
+```bash
+cp .env.example .env
+```
+Open `.env` and set your preferred provider:
+* **Groq (Cloud):** Set `LLM_PROVIDER=groq` and add your `GROQ_API_KEY`.
+* **Gemini (Cloud):** Set `LLM_PROVIDER=gemini` and add your `GEMINI_API_KEY`.
+* **Ollama (Local Offline):** Set `LLM_PROVIDER=ollama`. Make sure to download the model locally using `ollama pull llama3.2`.
+
+### 3. Run the Application
+* **Streamlit UI:**
+  ```bash
+  streamlit run streamlit_app.py
+  ```
+  Access the app at **[http://localhost:8501](http://localhost:8501)**.
+* **FastAPI Backend (REST API):**
+  ```bash
+  uvicorn api.main:app --reload
+  ```
+  Access the API documentation at **[http://localhost:8000/docs](http://localhost:8000/docs)**.
+
+---
+
+## 📁 Repository Structure
 
 ```
-├── streamlit_app.py          # Home page + setup guide
+.
+├── streamlit_app.py          # Streamlit UI home page
 ├── pages/
-│   ├── 01_Upload_Papers.py       # PDF ingestion pipeline
-│   ├── 02_Chat_with_Papers.py     # Streaming RAG chat
-│   ├── 03_Compare_Papers.py       # Cross-paper comparison
-│   ├── 04_Knowledge_Search.py     # Hybrid semantic search
-│   └── 05_Analytics_Dashboard.py  # System analytics
+│   ├── 01_Upload_Papers.py       # PDF parsing & indexing
+│   ├── 02_Chat_with_Papers.py     # Streaming Q&A Chat
+│   ├── 03_Compare_Papers.py       # Comparison matrix
+│   ├── 04_Knowledge_Search.py     # RRF search panel
+│   └── 05_Analytics_Dashboard.py  # System graphs & stats
 ├── core/
-│   ├── config.py             # Central configuration
-│   ├── database.py           # SQLite metadata store
-│   ├── pdf_processor.py      # PDF → chunks pipeline
-│   ├── embeddings.py         # Sentence transformer service
-│   ├── vector_store.py       # ChromaDB + BM25 hybrid search
-│   ├── llm_handler.py        # Groq / Gemini / Ollama unified API
-│   ├── rag_pipeline.py       # Full RAG orchestration
-│   └── summarizer.py         # Structured summarization
-├── data/
-│   ├── uploads/              # Stored PDF files
-│   ├── chroma_db/            # Persistent vector index
-│   └── exports/              # Exported results
+│   ├── config.py             # Global constants & variables
+│   ├── database.py           # Metadata SQLite schema
+│   ├── pdf_processor.py      # PyMuPDF processing pipeline
+│   ├── embeddings.py         # Local SentenceTransformer embeddings
+│   ├── vector_store.py       # ChromaDB + BM25 search
+│   ├── llm_handler.py        # Groq/Gemini/Ollama router
+│   ├── rag_pipeline.py       # Query-expansion RAG manager
+│   └── summarizer.py         # Summary generation
+├── api/
+│   ├── main.py               # FastAPI entrypoint
+│   └── routes.py             # REST API endpoint definitions
+├── tests/
+│   └── test_api.py           # Pytest unit test coverage
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
-├── .env.example
+├── .gitignore
 └── README.md
 ```
 
 ---
-
-## 🔬 Technical Deep-Dive
-
-### Hybrid Retrieval (the core innovation)
-
-Most RAG systems use only dense vector search. ResearchMind AI uses **Reciprocal Rank Fusion (RRF)** to combine:
-
-- **Dense retrieval** (ChromaDB, cosine similarity) — finds semantically similar content
-- **BM25 keyword retrieval** — finds exact term matches, especially good for technical terms
-
-```
-RRF score = 0.60 × (1/(k + dense_rank)) + 0.40 × (1/(k + bm25_rank))
-```
-
-This is the same technique used by Elasticsearch and production RAG systems at FAANG companies.
-
-### Multi-Query Expansion
-
-Before retrieval, the query is expanded into variants to improve recall:
-1. Original query
-2. Content-word-focused version (stopwords removed)
-
-### Chunking Strategy
-
-Rather than fixed-size chunks, the processor:
-- Detects section boundaries (Abstract, Introduction, Methodology, etc.)
-- Splits at paragraph → sentence → word boundaries
-- Maintains overlap for context continuity
-
-### Confidence Scoring
-
-Each answer comes with a confidence score computed from:
-- Average cosine similarity of top-3 retrieved chunks
-- Down-weighted if the LLM signals missing context ("not found", "not mentioned", etc.)
-
----
-
-## 💬 Example Queries
-
-```
-Summarize the methodology of this paper.
-What datasets were used for training and evaluation?
-Compare BERT and GPT approaches to language modeling.
-What are the key limitations mentioned across all papers?
-Which paper achieves the highest BLEU score?
-What future work directions are suggested?
-Find all mentions of transformer architecture.
-```
-
----
-
 
 ## 🔮 Project Roadmap & Status
 
