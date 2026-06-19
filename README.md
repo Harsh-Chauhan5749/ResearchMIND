@@ -1,7 +1,7 @@
 # 🧠 ResearchMind AI
 
 > **Intelligent Research Paper Analysis & Knowledge Retrieval System**  
-> Powered by Retrieval-Augmented Generation, Hybrid Vector Search, and Free LLMs.
+> Powered by Retrieval-Augmented Generation (RAG), Hybrid Vector Search, and Free/Local LLMs.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.32+-red)](https://streamlit.io)
@@ -10,34 +10,35 @@
 
 ---
 
-## 🚀 What Is This?
+## 🚀 Overview
 
-ResearchMind AI is a full-stack AI system that turns a folder of research PDFs into a **queryable, searchable, comparable knowledge base** — with no paid APIs required.
-
-Unlike simple PDF summarizers, it builds a **persistent semantic memory** you can:
-- **Chat with** in natural language
-- **Search across** using hybrid retrieval
-- **Compare** papers side-by-side
-- **Visualize** with analytics
+ResearchMind AI is a production-patterned RAG application that turns academic PDFs into a **queryable, comparable, and searchable local knowledge base**. It is engineered to run completely offline (via Ollama) or in hybrid cloud mode (via Groq/Gemini APIs) with no paid dependencies.
 
 ---
 
-## ✨ Key Features
+## 🏆 Key Engineering Highlights (Interview Talking Points)
 
-| Feature | Details |
-|---------|---------|
-| 📄 **PDF Ingestion** | PyMuPDF + PDFPlumber — text, tables, metadata, sections |
-| 🔢 **Local Embeddings** | `all-MiniLM-L6-v2` (free, runs offline) |
-| 🔍 **Hybrid Retrieval** | ChromaDB (dense cosine) + BM25 (keyword) fused via RRF |
-| 🧠 **Streaming Chat** | Token-by-token streaming with source citations |
-| 📊 **Paper Comparison** | LLM deep-compare: methods, datasets, results, strengths |
-| 📈 **Analytics** | Upload timeline, chunk distribution, system health |
-| 💯 **Confidence Scoring** | Per-answer confidence based on retrieval similarity |
-| 🆓 **100% Free LLMs** | Groq (Llama 70B) · Gemini Flash · Ollama (offline) |
+If presenting this project in a **placement or technical internship interview**, highlight these architectural decisions:
+
+* **Hybrid Dense/Sparse Search (RRF):** Fuses dense semantic vector search (ChromaDB) with exact keyword matching (BM25) using **Reciprocal Rank Fusion (RRF)**. This mirrors production search systems (like Elasticsearch) and improves precision on technical/mathematical terms.
+* **Fail-Safe Abstraction (Graceful Fallback):** Features a custom [core/llm_handler.py](file:///c:/Users/hpscu/OneDrive/Documents/Research_Mind/core/llm_handler.py) wrapper that handles API rate-limits or internet outages by **automatically falling back to local Ollama (Llama 3.2)** dynamically without interrupting the session.
+* **Semantic Section-Aware Chunking:** Rather than splitting PDFs arbitrarily, the processor reads section headers (Abstract, Intro, Methods) and preserves paragraph boundaries with sliding-window overlaps to maintain context cohesion.
+* **Strict Schema Integrity:** Mitigates common PyArrow serialization type conflicts in Streamlit dataframes by enforcing uniform string-casting on mixed database entries (like publication years).
+* **Production DevOps Patterns:** Containerized using Docker/Docker-Compose for easy scaling and isolated frontend/backend deployments. Included FastAPI endpoints alongside the Streamlit UI.
 
 ---
 
-## 🏗️ Architecture
+## ✨ Core Features
+
+* **Ingestion Pipeline:** Automatic text, table, and metadata extraction from uploaded PDFs or direct import via arXiv ID.
+* **Streaming RAG Chat:** Conversational interface with source citations, relevance ratings, and confidence scoring.
+* **Cross-Paper Comparison:** Side-by-side matrices comparing research methodologies, datasets, and performance metrics.
+* **Hybrid Search Panel:** Combined keyword and semantic search query filters with CSV/JSON metadata exporting.
+* **System Analytics:** Graphical dashboards representing system health, chunk statistics, and database ingestion timelines.
+
+---
+
+## 🏗️ Architecture Flow
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -53,14 +54,14 @@ Unlike simple PDF summarizers, it builds a **persistent semantic memory** you ca
          │   Confidence scoring        │
          └──┬──────────────────┬───────┘
             │                  │
-  ┌─────────▼──────┐  ┌───────▼──────────┐
+  ┌*********▼******┐  ┌******▼**********┐
   │   VectorStore   │  │   LLM Handler    │
   │  ChromaDB dense │  │  Groq  (free)    │
   │  BM25 keyword   │  │  Gemini (free)   │
   │  RRF fusion     │  │  Ollama (offline) │
   └─────────┬───────┘  └──────────────────┘
             │
-  ┌─────────▼───────────┐
+  ┌*********▼***********┐
   │    PDF Processor     │
   │  PyMuPDF + PLumber   │
   │  Semantic chunking   │
@@ -73,136 +74,68 @@ Unlike simple PDF summarizers, it builds a **persistent semantic memory** you ca
 ## ⚡ Quickstart
 
 ### 1. Clone & Install
-
 ```bash
-git clone https://github.com/yourusername/researchmind-ai.git
-cd researchmind-ai
-
+git clone https://github.com/Harsh-Chauhan5749/ResearchMIND.git
+cd ResearchMIND
 pip install -r requirements.txt
 ```
 
-### 2. Get a Free LLM API Key (pick one)
-
-**Option A — Groq (Recommended: fastest, Llama 3.1 70B)**
-```
-1. Go to https://console.groq.com
-2. Sign up free → API Keys → Create API Key
-3. Free tier: 30 requests/min, 6000 tokens/min
-```
-
-**Option B — Google Gemini (Gemini 1.5 Flash)**
-```
-1. Go to https://ai.google.dev
-2. Get API Key → Create API Key
-3. Free tier: 15 requests/min
-```
-
-**Option C — Ollama (fully offline, no key needed)**
-```bash
-# Install from https://ollama.ai
-ollama pull llama3.2   # ~2GB download
-```
-
-### 3. Configure
-
+### 2. Configure Environment
+Create a `.env` file in the root directory using the template:
 ```bash
 cp .env.example .env
-# Edit .env with your key:
-# GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
-# LLM_PROVIDER=groq
 ```
+Open `.env` and choose your provider:
+* **Groq (Cloud):** Set `LLM_PROVIDER=groq` and add your `GROQ_API_KEY`.
+* **Gemini (Cloud):** Set `LLM_PROVIDER=gemini` and add your `GEMINI_API_KEY`.
+* **Ollama (Local Offline):** Set `LLM_PROVIDER=ollama`. Run `ollama pull llama3.2` locally.
 
-### 4. Run
-
-```bash
-streamlit run streamlit_app.py
-```
-
-Visit `http://localhost:8501` 🎉
+### 3. Run the App
+* **Streamlit UI:**
+  ```bash
+  streamlit run streamlit_app.py
+  ```
+  Open **[http://localhost:8501](http://localhost:8501)** in your browser.
+* **FastAPI Backend (Optional):**
+  ```bash
+  uvicorn api.main:app --reload
+  ```
 
 ---
 
-## 📁 Project Structure
+## 📁 Repository Structure
 
 ```
-researchmind-ai/
-├── streamlit_app.py          # Home page + setup guide
+.
+├── streamlit_app.py          # Streamlit UI home page
 ├── pages/
-│   ├── 01_Upload_Papers.py       # PDF ingestion pipeline
-│   ├── 02_Chat_with_Papers.py     # Streaming RAG chat
-│   ├── 03_Compare_Papers.py       # Cross-paper comparison
-│   ├── 04_Knowledge_Search.py     # Hybrid semantic search
-│   └── 05_Analytics_Dashboard.py  # System analytics
+│   ├── 01_Upload_Papers.py       # PDF parsing & indexing
+│   ├── 02_Chat_with_Papers.py     # Streaming Q&A Chat
+│   ├── 03_Compare_Papers.py       # Comparison matrix
+│   ├── 04_Knowledge_Search.py     # RRF search panel
+│   └── 05_Analytics_Dashboard.py  # System graphs & stats
 ├── core/
-│   ├── config.py             # Central configuration
-│   ├── database.py           # SQLite metadata store
-│   ├── pdf_processor.py      # PDF → chunks pipeline
-│   ├── embeddings.py         # Sentence transformer service
-│   ├── vector_store.py       # ChromaDB + BM25 hybrid search
-│   ├── llm_handler.py        # Groq / Gemini / Ollama unified API
-│   ├── rag_pipeline.py       # Full RAG orchestration
-│   └── summarizer.py         # Structured summarization
-├── data/
-│   ├── uploads/              # Stored PDF files
-│   ├── chroma_db/            # Persistent vector index
-│   └── exports/              # Exported results
+│   ├── config.py             # Global constants & variables
+│   ├── database.py           # Metadata SQLite schema
+│   ├── pdf_processor.py      # PyMuPDF processing pipeline
+│   ├── embeddings.py         # Local SentenceTransformer embeddings
+│   ├── vector_store.py       # ChromaDB + BM25 search
+│   ├── llm_handler.py        # Groq/Gemini/Ollama router
+│   ├── rag_pipeline.py       # Query-expansion RAG manager
+│   └── summarizer.py         # Summary generation
+├── api/
+│   ├── main.py               # FastAPI entrypoint
+│   └── routes.py             # REST API endpoint definitions
+├── tests/
+│   └── test_api.py           # Pytest unit test coverage
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
-├── .env.example
+├── .gitignore
 └── README.md
 ```
 
 ---
-
-## 🔬 Technical Deep-Dive
-
-### Hybrid Retrieval (the core innovation)
-
-Most RAG systems use only dense vector search. ResearchMind AI uses **Reciprocal Rank Fusion (RRF)** to combine:
-
-- **Dense retrieval** (ChromaDB, cosine similarity) — finds semantically similar content
-- **BM25 keyword retrieval** — finds exact term matches, especially good for technical terms
-
-```
-RRF score = 0.60 × (1/(k + dense_rank)) + 0.40 × (1/(k + bm25_rank))
-```
-
-This is the same technique used by Elasticsearch and production RAG systems at FAANG companies.
-
-### Multi-Query Expansion
-
-Before retrieval, the query is expanded into variants to improve recall:
-1. Original query
-2. Content-word-focused version (stopwords removed)
-
-### Chunking Strategy
-
-Rather than fixed-size chunks, the processor:
-- Detects section boundaries (Abstract, Introduction, Methodology, etc.)
-- Splits at paragraph → sentence → word boundaries
-- Maintains overlap for context continuity
-
-### Confidence Scoring
-
-Each answer comes with a confidence score computed from:
-- Average cosine similarity of top-3 retrieved chunks
-- Down-weighted if the LLM signals missing context ("not found", "not mentioned", etc.)
-
----
-
-## 💬 Example Queries
-
-```
-Summarize the methodology of this paper.
-What datasets were used for training and evaluation?
-Compare BERT and GPT approaches to language modeling.
-What are the key limitations mentioned across all papers?
-Which paper achieves the highest BLEU score?
-What future work directions are suggested?
-Find all mentions of transformer architecture.
-```
-
----
-
 
 ## 🔮 Project Roadmap & Status
 
@@ -218,7 +151,3 @@ Find all mentions of transformer architecture.
 ## 📄 License
 
 MIT License — free for personal, academic, and commercial use.
-
----
-
-*Built as a portfolio project demonstrating production-level AI system design.*
