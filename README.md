@@ -203,22 +203,6 @@ Find all mentions of transformer architecture.
 
 ---
 
-## 🏆 FAANG Resume Talking Points
-
-This project demonstrates:
-
-1. **RAG System Design** — end-to-end retrieval-augmented generation pipeline
-2. **Vector Databases** — ChromaDB with persistent HNSW index
-3. **Hybrid Search** — BM25 + dense retrieval with RRF fusion
-4. **Embedding Models** — sentence-transformers, normalized cosine similarity
-5. **LLM Integration** — streaming, multi-provider abstraction, prompt engineering
-6. **Full-Stack Dev** — Streamlit multi-page app with custom CSS
-7. **Data Engineering** — PDF parsing, semantic chunking, metadata extraction
-8. **System Architecture** — modular design, caching, error handling
-9. **SQL** — SQLite for metadata with proper indexing
-10. **Production Patterns** — singleton clients, batch processing, graceful degradation
-
----
 
 ## 🔮 Project Roadmap & Status
 
